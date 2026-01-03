@@ -1,0 +1,98 @@
+{
+  "model_id": "gpt-oss-20b",
+  "model_name": "gpt-oss-20b",
+  "benchmark_name": "SWE-rebench",
+  "total_tasks": 5,
+  "num_runs_per_task": 1,
+  "started_at": "2025-12-31T18:06:37.336738",
+  "completed_at": "2025-12-31T18:22:26.602078",
+  "summary": {
+    "resolved_count": 0,
+    "resolved_rate": 0.0,
+    "pass_at_k_count": 0,
+    "pass_at_k_rate": 0.0,
+    "sem": 0.0
+  },
+  "results": [
+    {
+      "task_id": "0b01001001__spectree-64",
+      "num_runs": 1,
+      "num_resolved": 0,
+      "resolution_rate": 0.0,
+      "pass_at_k": false,
+      "runs": [
+        {
+          "run_id": "0b01001001__spectree-64-run1",
+          "status": "completed",
+          "resolved": false,
+          "execution_time_seconds": 433.6429793834686,
+          "error_message": null
+        }
+      ]
+    },
+    {
+      "task_id": "12rambau__sepal_ui-347",
+      "num_runs": 1,
+      "num_resolved": 0,
+      "resolution_rate": 0.0,
+      "pass_at_k": false,
+      "runs": [
+        {
+          "run_id": "12rambau__sepal_ui-347-run1",
+          "status": "completed",
+          "resolved": false,
+          "execution_time_seconds": 24.598052263259888,
+          "error_message": null
+        }
+      ]
+    },
+    {
+      "task_id": "12rambau__sepal_ui-411",
+      "num_runs": 1,
+      "num_resolved": 0,
+      "resolution_rate": 0.0,
+      "pass_at_k": false,
+      "runs": [
+        {
+          "run_id": "12rambau__sepal_ui-411-run1",
+          "status": "completed",
+          "resolved": false,
+          "execution_time_seconds": 29.51815629005432,
+          "error_message": null
+        }
+      ]
+    },
+    {
+      "task_id": "12rambau__sepal_ui-416",
+      "num_runs": 1,
+      "num_resolved": 0,
+      "resolution_rate": 0.0,
+      "pass_at_k": false,
+      "runs": [
+        {
+          "run_id": "12rambau__sepal_ui-416-run1",
+          "status": "completed",
+          "resolved": false,
+          "execution_time_seconds": 38.07756280899048,
+          "error_message": null
+        }
+      ]
+    },
+    {
+      "task_id": "12rambau__sepal_ui-418",
+      "num_runs": 1,
+      "num_resolved": 0,
+      "resolution_rate": 0.0,
+      "pass_at_k": false,
+      "runs": [
+        {
+          "run_id": "12rambau__sepal_ui-418-run1",
+          "status": "completed",
+          "resolved": false,
+          "execution_time_seconds": 32.47851634025574,
+          "error_message": null
+        }
+      ]
+    }
+  ]
+}
