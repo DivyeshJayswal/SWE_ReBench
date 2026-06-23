@@ -179,7 +179,7 @@ def cmd_evaluate(args):
         print("💰 Cost Summary:")
         print(f"  Input tokens: {cost['input_tokens']:,}")
         print(f"  Output tokens: {cost['output_tokens']:,}")
-        print(f"  Total cost: ${cost['total_cost_usd']:.4f}")
+        print(f"  Total cost: ${cost['total_cost']:.4f}")
 
 
 def cmd_estimate(args):

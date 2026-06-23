@@ -655,3 +655,41 @@ class OpenRouterClient(LLMClient):
             "output_tokens": self.output_tokens,
             "total_cost": round((self.input_tokens / 1e6 * i_rate) + (self.output_tokens / 1e6 * o_rate), 4)
         }
+
+    @staticmethod
+    def estimate_benchmark_cost(
+        model: str,
+        num_tasks: int = 294,
+        num_runs: int = 5,
+        avg_steps_per_task: int = 30,
+        avg_input_tokens_per_step: int = 8000,
+        avg_output_tokens_per_step: int = 500,
+    ) -> dict:
+        """Estimate cost before running a benchmark (no API calls made)."""
+        per_run_costs = {
+            "deepseek/deepseek-r1": (0.55, 2.19),
+            "deepseek/deepseek-chat": (0.14, 0.28),
+        }
+        i_rate, o_rate = per_run_costs.get(model, (1.0, 3.0))
+
+        total_steps = num_tasks * num_runs * avg_steps_per_task
+        est_input = total_steps * avg_input_tokens_per_step
+        est_output = total_steps * avg_output_tokens_per_step
+        input_cost = est_input / 1e6 * i_rate
+        output_cost = est_output / 1e6 * o_rate
+        # Rough time estimate: ~60s per step on average
+        est_hours = (total_steps * 60) / 3600
+
+        return {
+            "model": model,
+            "num_tasks": num_tasks,
+            "num_runs": num_runs,
+            "total_steps": total_steps,
+            "estimated_input_tokens": est_input,
+            "estimated_output_tokens": est_output,
+            "estimated_input_cost_usd": round(input_cost, 2),
+            "estimated_output_cost_usd": round(output_cost, 2),
+            "estimated_total_cost_usd": round(input_cost + output_cost, 2),
+            "estimated_time_hours": round(est_hours, 1),
+            "note": "Estimates assume ~60s/step and average token counts. Actual costs may vary.",
+        }
