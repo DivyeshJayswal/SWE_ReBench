@@ -186,6 +186,7 @@ class LeaderboardEntry:
     sem: float
     pass_at_5: float
     num_tasks: int
+    num_runs: int
     evaluation_date: datetime
     is_contaminated: bool = False  # True if model may have seen test data
     notes: Optional[str] = None
