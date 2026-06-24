@@ -6,7 +6,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional
 from contextlib import asynccontextmanager
-import evaluation_engine as EvaluationEngine
+from evaluation_engine import EvaluationEngine
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
