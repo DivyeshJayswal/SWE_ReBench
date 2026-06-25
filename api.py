@@ -6,7 +6,6 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional
 from contextlib import asynccontextmanager
-from evaluation_engine import EvaluationEngine
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
@@ -18,7 +17,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from models import ModelConfig, TaskDifficulty
 from dataset_loader import DatasetLoader
-from evaluation_engine import Leaderboard
+from evaluation_engine import EvaluationEngine, Leaderboard
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -39,13 +38,22 @@ async def lifespan(app: FastAPI):
     global dataset_loader, evaluation_engine, leaderboard
     
     logger.info("Starting SWE-rebench API...")
-    
+
     # Initialize components
     dataset_loader = DatasetLoader()
-    evaluation_engine = None
-    
     leaderboard = Leaderboard()
-    
+
+    try:
+        from execution_env import DockerEnvironment
+        evaluation_engine = EvaluationEngine(
+            docker_env=DockerEnvironment(),
+            dataset_loader=dataset_loader,
+        )
+        logger.info("Docker available — evaluation engine ready")
+    except Exception as e:
+        evaluation_engine = None
+        logger.warning(f"Docker not available — evaluation endpoints disabled: {e}")
+
     logger.info("API initialized successfully")
     
     yield
@@ -191,6 +199,7 @@ class LeaderboardEntryResponse(BaseModel):
     sem: float
     pass_at_5: float
     num_tasks: int
+    num_runs: int
     evaluation_date: datetime
     is_contaminated: bool
 
@@ -525,6 +534,7 @@ async def get_leaderboard(
                 sem=e.sem,
                 pass_at_5=e.pass_at_5,
                 num_tasks=e.num_tasks,
+                num_runs=e.num_runs,
                 evaluation_date=e.evaluation_date,
                 is_contaminated=e.is_contaminated
             ).model_dump()
