@@ -20,6 +20,20 @@ class AgentContext:
     repo_path: str
     command_history: List[AgentAction] = field(default_factory=list)
 
+    def get_problem_description(self) -> str:
+        """Return a concise task description for tests and agent diagnostics."""
+        fail_to_pass = "\n".join(f"- {test}" for test in self.task.fail_to_pass) or "- None"
+        pass_to_pass = "\n".join(f"- {test}" for test in self.task.pass_to_pass) or "- None"
+
+        return (
+            f"Repository: {self.task.repo}\n"
+            f"Instance: {self.task.instance_id}\n"
+            f"Workspace: {self.repo_path}\n\n"
+            f"Problem Statement:\n{self.task.problem_statement}\n\n"
+            f"Fail-to-pass tests:\n{fail_to_pass}\n\n"
+            f"Pass-to-pass tests:\n{pass_to_pass}"
+        )
+
 
 # EXACT system prompt from SWE-rebench (text-based mode)
 SWEREBENCH_SYSTEM_PROMPT = '''# SETTING
