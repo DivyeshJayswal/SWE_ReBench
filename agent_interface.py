@@ -20,6 +20,17 @@ class AgentContext:
     repo_path: str
     command_history: List[AgentAction] = field(default_factory=list)
 
+    def get_problem_description(self) -> str:
+        """Return the task context shown to an agent at startup."""
+        tests = self.task.fail_to_pass + self.task.pass_to_pass
+        tests_text = ", ".join(tests) if tests else "None"
+        return (
+            f"Repository: {self.task.repo}\n"
+            f"Repository path: {self.repo_path}\n"
+            f"Issue:\n{self.task.problem_statement}\n"
+            f"Tests: {tests_text}"
+        )
+
 
 # EXACT system prompt from SWE-rebench (text-based mode)
 SWEREBENCH_SYSTEM_PROMPT = '''# SETTING
