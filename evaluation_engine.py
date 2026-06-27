@@ -193,21 +193,55 @@ class EvaluationEngine:
         
         logger.info(f"Starting benchmark with {len(tasks)} tasks, {num_runs_per_task} runs each")
         
-        agent = SimpleReActAgent(model_config=model_config, api_client=llm_client)
         results = []
         started_at = datetime.now()
-        
-        for i, task in enumerate(tasks):
-            logger.info(f"Evaluating task {i+1}/{len(tasks)}: {task.instance_id}")
-            
-            result = self.evaluate_task_multiple_runs(
-                task, agent, num_runs=num_runs_per_task
-            )
-            results.append(result)
-            
-            # Log progress
-            resolved_so_far = sum(1 for r in results if r.num_resolved > 0)
-            logger.info(f"Progress: {resolved_so_far}/{i+1} tasks with any success")
+
+        if parallel and self.num_workers > 1:
+            logger.info(f"Running benchmark in parallel with {self.num_workers} workers")
+            results = [None] * len(tasks)
+
+            def evaluate_indexed_task(index: int, task: TaskInstance) -> tuple[int, EvaluationResult]:
+                task_agent = SimpleReActAgent(model_config=model_config, api_client=llm_client)
+                return index, self.evaluate_task_multiple_runs(
+                    task, task_agent, num_runs=num_runs_per_task
+                )
+
+            with ThreadPoolExecutor(max_workers=self.num_workers) as executor:
+                future_to_task = {
+                    executor.submit(evaluate_indexed_task, i, task): (i, task)
+                    for i, task in enumerate(tasks)
+                }
+
+                completed = 0
+                for future in as_completed(future_to_task):
+                    i, task = future_to_task[future]
+                    logger.info(f"Completed task {i+1}/{len(tasks)}: {task.instance_id}")
+                    result_index, result = future.result()
+                    results[result_index] = result
+                    completed += 1
+
+                    resolved_so_far = sum(
+                        1 for r in results if r is not None and r.num_resolved > 0
+                    )
+                    logger.info(
+                        f"Progress: {resolved_so_far}/{completed} completed tasks with any success"
+                    )
+
+            results = [r for r in results if r is not None]
+        else:
+            agent = SimpleReActAgent(model_config=model_config, api_client=llm_client)
+
+            for i, task in enumerate(tasks):
+                logger.info(f"Evaluating task {i+1}/{len(tasks)}: {task.instance_id}")
+
+                result = self.evaluate_task_multiple_runs(
+                    task, agent, num_runs=num_runs_per_task
+                )
+                results.append(result)
+
+                # Log progress
+                resolved_so_far = sum(1 for r in results if r.num_resolved > 0)
+                logger.info(f"Progress: {resolved_so_far}/{i+1} tasks with any success")
         
         # Create benchmark result
         benchmark = BenchmarkResult(

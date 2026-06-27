@@ -1,6 +1,8 @@
 
 import json
 import pytest
+import threading
+import time
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
@@ -194,6 +196,76 @@ class TestEvaluationEngine:
         # 3 correct out of 5, k=1
         result = calculate_pass_at_k(n=5, c=3, k=1)
         assert 0.5 < result < 0.7
+
+    def test_run_benchmark_parallel_uses_workers(self, tmp_path):
+        from evaluation_engine import EvaluationEngine
+
+        class RecordingEngine(EvaluationEngine):
+            def __init__(self):
+                super().__init__(
+                    docker_env=Mock(),
+                    dataset_loader=Mock(),
+                    results_dir=str(tmp_path),
+                    num_workers=2
+                )
+                self.active_tasks = 0
+                self.max_active_tasks = 0
+                self.lock = threading.Lock()
+
+            def evaluate_task_multiple_runs(self, task, agent, num_runs=5):
+                with self.lock:
+                    self.active_tasks += 1
+                    self.max_active_tasks = max(self.max_active_tasks, self.active_tasks)
+
+                try:
+                    time.sleep(0.05)
+                    return EvaluationResult(
+                        task_id=task.instance_id,
+                        model_id=agent.model_config.model_id,
+                        num_runs=num_runs,
+                        num_resolved=1,
+                        runs=[]
+                    )
+                finally:
+                    with self.lock:
+                        self.active_tasks -= 1
+
+        tasks = [
+            TaskInstance(
+                instance_id=f"test__repo-{i}",
+                repo="test/repo",
+                base_commit="abc123",
+                version="1.0",
+                created_at=datetime.now(),
+                problem_statement="Test issue",
+                patch="diff...",
+                test_patch="diff...",
+                fail_to_pass=["test_sum"],
+                pass_to_pass=[],
+                install_config=InstallConfig(python="3.9", install="pip install .", test_cmd="pytest"),
+                llm_score=LLMScore(1, 1, 1),
+                license_name="MIT"
+            )
+            for i in range(4)
+        ]
+
+        model_config = ModelConfig(
+            model_id="model1",
+            name="Test Model",
+            provider="test"
+        )
+        engine = RecordingEngine()
+
+        result = engine.run_benchmark(
+            model_config=model_config,
+            llm_client=Mock(),
+            tasks=tasks,
+            num_runs_per_task=1,
+            parallel=True
+        )
+
+        assert engine.max_active_tasks > 1
+        assert [r.task_id for r in result.results] == [t.instance_id for t in tasks]
 
 
 class TestLeaderboard:
