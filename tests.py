@@ -11,7 +11,7 @@ from unittest.mock import Mock, patch, MagicMock
 from models import (
     TaskInstance, InstallConfig, LLMScore, ModelConfig,
     EvaluationRun, EvaluationResult, BenchmarkResult,
-    EvaluationStatus, LeaderboardEntry
+    EvaluationStatus, LeaderboardEntry, AgentAction
 )
 from dataset_loader import DatasetLoader
 
@@ -266,6 +266,106 @@ class TestEvaluationEngine:
 
         assert engine.max_active_tasks > 1
         assert [r.task_id for r in result.results] == [t.instance_id for t in tasks]
+
+
+class TestCausalInferenceEngine:
+    def _run(self, run_id, resolved, actions, patch="diff --git a/file.py b/file.py", seconds=10.0):
+        return EvaluationRun(
+            run_id=run_id,
+            task_id=f"task-{run_id}",
+            model_id="model1",
+            status=EvaluationStatus.COMPLETED,
+            started_at=datetime.now(),
+            resolved=resolved,
+            actions=actions,
+            generated_patch=patch,
+            execution_time_seconds=seconds
+        )
+
+    def _action(self, action_type, content, observation="", success=True):
+        return AgentAction(
+            action_type=action_type,
+            content=content,
+            timestamp=datetime.now(),
+            observation=observation,
+            success=success
+        )
+
+    def test_feature_extraction_from_runs(self):
+        from causal_engine import CausalInferenceEngine
+
+        run = self._run(
+            "run1",
+            True,
+            [
+                self._action("bash", "grep -rn calculate ."),
+                self._action("bash", "pytest", "Traceback: assertion error", success=False),
+                self._action("edit", "edit 1:1 fixed"),
+                self._action("submit", "submit"),
+            ],
+        )
+
+        features = CausalInferenceEngine().extract_features([run])
+
+        assert len(features) == 1
+        assert features[0].num_steps == 4
+        assert features[0].search_count == 1
+        assert features[0].edit_count == 1
+        assert features[0].error_count == 1
+        assert features[0].used_search_before_edit is True
+        assert features[0].reproduced_error_before_fix is True
+
+    def test_propensity_matching_pairs_treated_and_control_runs(self):
+        from causal_engine import CausalInferenceEngine
+
+        engine = CausalInferenceEngine()
+        runs = [
+            self._run("treated1", True, [
+                self._action("bash", "grep target ."),
+                self._action("edit", "edit 1:1 fix"),
+            ]),
+            self._run("treated2", False, [
+                self._action("search_file", "search_file target file.py"),
+                self._action("edit", "edit 2:2 fix"),
+            ]),
+            self._run("control1", False, [self._action("edit", "edit 1:1 guess")]),
+            self._run("control2", False, [self._action("open", "open file.py")]),
+        ]
+        features = engine.extract_features(runs)
+        scores = engine.estimate_propensity_scores(features, "used_search_before_edit")
+        pairs = engine.match_by_propensity(features, "used_search_before_edit", scores)
+
+        assert set(scores) == {run.run_id for run in runs}
+        assert all(0.0 < score < 1.0 for score in scores.values())
+        assert len(pairs) == 2
+        assert all(pair.propensity_distance >= 0.0 for pair in pairs)
+
+    def test_treatment_effect_and_root_cause_report(self):
+        from causal_engine import CausalInferenceEngine
+
+        runs = [
+            self._run("treated1", True, [
+                self._action("bash", "grep target ."),
+                self._action("edit", "edit 1:1 fix"),
+            ]),
+            self._run("treated2", True, [
+                self._action("search_file", "search_file target file.py"),
+                self._action("edit", "edit 2:2 fix"),
+            ]),
+            self._run("control1", False, [self._action("edit", "edit 1:1 guess")], patch=""),
+            self._run("control2", False, [self._action("open", "open file.py")], patch=""),
+        ]
+
+        engine = CausalInferenceEngine()
+        features = engine.extract_features(runs)
+        effect = engine.estimate_treatment_effect(features, "used_search_before_edit")
+        report = engine.root_cause_report(runs, treatments=["used_search_before_edit"])
+
+        assert effect.treated_count == 2
+        assert effect.control_count == 2
+        assert effect.ate > 0.0
+        assert effect.matched_att > 0.0
+        assert report.top_positive[0].treatment == "used_search_before_edit"
 
 
 class TestLeaderboard:
