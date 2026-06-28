@@ -368,6 +368,96 @@ class TestCausalInferenceEngine:
         assert report.top_positive[0].treatment == "used_search_before_edit"
 
 
+class TestAgentInterpretabilityModule:
+    def _action(self, action_type, content, observation="", success=True):
+        return AgentAction(
+            action_type=action_type,
+            content=content,
+            timestamp=datetime.now(),
+            observation=observation,
+            success=success
+        )
+
+    def _run(self, run_id, resolved, actions, patch="diff --git a/file.py b/file.py"):
+        return EvaluationRun(
+            run_id=run_id,
+            task_id=f"task-{run_id}",
+            model_id="model1",
+            status=EvaluationStatus.COMPLETED,
+            started_at=datetime.now(),
+            resolved=resolved,
+            actions=actions,
+            generated_patch=patch,
+            execution_time_seconds=5.0
+        )
+
+    def _sample_runs(self):
+        return [
+            self._run("run1", True, [
+                self._action("bash", "grep target ."),
+                self._action("edit", "edit 1:1 fix"),
+                self._action("submit", "submit"),
+            ]),
+            self._run("run2", True, [
+                self._action("search_file", "search_file target file.py"),
+                self._action("edit", "edit 2:2 fix"),
+                self._action("submit", "submit"),
+            ]),
+            self._run("run3", False, [
+                self._action("open", "open file.py"),
+                self._action("edit", "edit 1:1 guess"),
+            ], patch=""),
+            self._run("run4", False, [
+                self._action("open", "open other.py"),
+                self._action("bash", "pytest", "Traceback: error", success=False),
+            ], patch=""),
+            self._run("run5", True, [
+                self._action("bash", "rg target"),
+                self._action("edit", "edit 3:3 fix"),
+            ]),
+            self._run("run6", False, [
+                self._action("open", "open file.py"),
+                self._action("bash", "pytest"),
+            ], patch=""),
+        ]
+
+    def test_decision_tree_fitting_and_feature_importance(self):
+        from interpretability import AgentInterpretabilityModule
+
+        module = AgentInterpretabilityModule(max_depth=3, random_state=0)
+        model = module.fit_decision_tree(self._sample_runs())
+        ranking = module.feature_importance_ranking(model)
+
+        assert hasattr(model, "predict")
+        assert len(ranking) == len(module.feature_names)
+        assert ranking[0].importance >= ranking[-1].importance
+        assert any(item.importance > 0.0 for item in ranking)
+
+    def test_strategy_validation_returns_holdout_metrics(self):
+        from interpretability import AgentInterpretabilityModule
+
+        module = AgentInterpretabilityModule(max_depth=3, random_state=0)
+        report = module.validate_strategies(self._sample_runs(), test_size=0.33)
+
+        assert report.num_train > 0
+        assert report.num_test > 0
+        assert 0.0 <= report.train_accuracy <= 1.0
+        assert 0.0 <= report.test_accuracy <= 1.0
+        assert report.top_features
+
+    def test_fidelity_report_calculates_agreement(self):
+        from interpretability import AgentInterpretabilityModule
+
+        runs = self._sample_runs()
+        module = AgentInterpretabilityModule(max_depth=3, random_state=0)
+        module.fit_decision_tree(runs)
+        report = module.fidelity_report(runs)
+
+        assert report.num_samples == len(runs)
+        assert 0.0 <= report.agreement_rate <= 1.0
+        assert report.num_disagreements == len(runs) - int(report.agreement_rate * len(runs))
+
+
 class TestLeaderboard:
     @pytest.fixture
     def temp_leaderboard(self, tmp_path):
