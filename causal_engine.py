@@ -167,6 +167,9 @@ class CausalInferenceEngine:
             return []
 
         propensity_scores = scores or self.estimate_propensity_scores(features, treatment)
+        missing_ids = {feature.run_id for feature in features} - set(propensity_scores)
+        if missing_ids:
+            raise ValueError(f"Missing propensity scores for run ids: {sorted(missing_ids)}")
         treated = [feature for feature in features if self._binary_value(feature, treatment)]
         controls = [feature for feature in features if not self._binary_value(feature, treatment)]
 
