@@ -311,9 +311,12 @@ class Leaderboard:
             try:
                 with open(self.filepath) as f:
                     data = json.load(f)
-                self.entries = [
-                    LeaderboardEntry(**e) for e in data.get("entries", [])
-                ]
+                entries = []
+                for e in data.get("entries", []):
+                    if isinstance(e.get("evaluation_date"), str):
+                        e["evaluation_date"] = datetime.fromisoformat(e["evaluation_date"])
+                    entries.append(LeaderboardEntry(**e))
+                self.entries = entries
             except Exception as e:
                 logger.warning(f"Could not load leaderboard: {e}")
                 self.entries = []
