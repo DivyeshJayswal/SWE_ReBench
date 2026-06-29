@@ -2,6 +2,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
+from math import comb
 from typing import Optional
 import uuid
 
@@ -134,8 +135,13 @@ class EvaluationResult:
         return self.num_resolved / self.num_runs
     
     @property
-    def pass_at_k(self) -> bool:
-        return self.num_resolved > 0
+    def pass_at_k(self) -> float:
+        n, c, k = self.num_runs, self.num_resolved, self.num_runs
+        if n == 0:
+            return 0.0
+        if n - c < k:
+            return 1.0
+        return 1.0 - comb(n - c, k) / comb(n, k)
 
 
 @dataclass
@@ -161,13 +167,13 @@ class BenchmarkResult:
     
     @property
     def pass_at_k_count(self) -> int:
-        return sum(1 for r in self.results if r.pass_at_k)
+        return sum(1 for r in self.results if r.pass_at_k > 0)
     
     @property
     def pass_at_k_rate(self) -> float:
         if not self.results:
             return 0.0
-        return self.pass_at_k_count / len(self.results)
+        return sum(r.pass_at_k for r in self.results) / len(self.results)
     
     def calculate_sem(self) -> float:
         import statistics
