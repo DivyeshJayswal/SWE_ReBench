@@ -168,9 +168,8 @@ class EvaluationEngine:
                 num_resolved += 1
         
         resolution_rate = num_resolved / num_runs if num_runs > 0 else 0
-        pass_at_k = num_resolved > 0
-        
-        logger.info(f"Task {task.instance_id}: {num_resolved}/{num_runs} resolved, Pass@{num_runs}: {pass_at_k}")
+
+        logger.info(f"Task {task.instance_id}: {num_resolved}/{num_runs} resolved, resolution_rate: {resolution_rate:.2f}")
         
         return EvaluationResult(
             task_id=task.instance_id,
