@@ -74,6 +74,13 @@ class TaskInstance:
     def num_fail_to_pass(self) -> int:
         return len(self.fail_to_pass)
 
+    @property
+    def num_files_edited(self) -> int:
+        return len({
+            line[6:] for line in self.patch.splitlines()
+            if line.startswith("+++ b/")
+        })
+
 
 @dataclass
 class ModelConfig:
