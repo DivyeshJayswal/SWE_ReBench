@@ -197,6 +197,10 @@ class DatasetLoader:
             if max_created_date and task.created_at > max_created_date:
                 continue
             
+            # Files-edited filter
+            if max_files_edited and task.num_files_edited > max_files_edited:
+                continue
+
             # Repository filter
             if repos and task.repo not in repos:
                 continue
