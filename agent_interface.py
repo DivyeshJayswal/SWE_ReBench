@@ -3,6 +3,7 @@ import logging
 import re
 import time
 import random
+import shlex
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -381,9 +382,11 @@ class EnvironmentExecutor:
             return f"Usage: search_file <term> [file]\n{self._prompt()}"
         
         try:
+            safe_term = shlex.quote(term)
+            safe_filepath = shlex.quote(filepath)
             result = self.docker_env._exec_in_container(
                 self.container,
-                f"cd /workspace/repo && grep -rn '{term}' {filepath} | head -50",
+                f"cd /workspace/repo && grep -rn {safe_term} {safe_filepath} | head -50",
                 check=False
             )
             return (result or "No matches found") + self._prompt()
